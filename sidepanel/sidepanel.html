@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DeckSafe</title>
+    <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./sidepanel.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <h1>DeckSafe</h1>
+          <p>Anonymize decks and documents, fully local.</p>
+          <div class="header-buddies" aria-hidden="true">
+            <svg class="buddy-svg" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges">
+              <rect x="4" y="2" width="8" height="10" fill="#485880"/>
+              <rect x="5" y="3" width="6" height="7" fill="#fffef8"/>
+              <rect x="6" y="5" width="1" height="1" fill="#3a3040"/>
+              <rect x="9" y="5" width="1" height="1" fill="#3a3040"/>
+              <rect x="7" y="7" width="2" height="1" fill="#e87a90"/>
+              <rect x="5" y="12" width="2" height="2" fill="#485880"/>
+              <rect x="9" y="12" width="2" height="2" fill="#485880"/>
+            </svg>
+            <svg class="buddy-svg" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges">
+              <rect x="2" y="2" width="3" height="3" fill="#a09090"/>
+              <rect x="11" y="2" width="3" height="3" fill="#a09090"/>
+              <rect x="3" y="4" width="10" height="8" fill="#a09090"/>
+              <rect x="5" y="5" width="6" height="4" fill="#f0e8d8"/>
+              <rect x="5" y="6" width="1" height="1" fill="#3a3040"/>
+              <rect x="10" y="6" width="1" height="1" fill="#3a3040"/>
+              <rect x="7" y="7" width="2" height="1" fill="#c4919e"/>
+              <rect x="4" y="12" width="3" height="1" fill="#f0e8d8"/>
+              <rect x="9" y="12" width="3" height="1" fill="#f0e8d8"/>
+            </svg>
+            <svg class="buddy-svg" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges">
+              <rect x="3" y="0" width="2" height="4" fill="#88c8c0"/>
+              <rect x="11" y="0" width="2" height="4" fill="#88c8c0"/>
+              <rect x="4" y="1" width="1" height="2" fill="#f0b0c8"/>
+              <rect x="11" y="1" width="1" height="2" fill="#f0b0c8"/>
+              <rect x="3" y="4" width="10" height="8" fill="#88c8c0"/>
+              <rect x="5" y="6" width="1" height="1" fill="#3a3040"/>
+              <rect x="10" y="6" width="1" height="1" fill="#3a3040"/>
+              <rect x="7" y="8" width="2" height="1" fill="#e8a8b0"/>
+              <rect x="4" y="7" width="1" height="1" fill="#e8a8b0"/>
+              <rect x="11" y="7" width="1" height="1" fill="#e8a8b0"/>
+            </svg>
+          </div>
+        </div>
+        <button id="resetButton" class="icon-button" type="button" title="Start over">↺</button>
+      </header>
+
+      <nav class="steps" aria-label="Workflow">
+        <button class="step is-active" data-step="upload" type="button">1 Upload</button>
+        <button class="step" data-step="rules" type="button" disabled>2 Rules</button>
+        <button class="step" data-step="preview" type="button" disabled>3 Preview</button>
+        <button class="step" data-step="download" type="button" disabled>4 Download</button>
+      </nav>
+
+      <div id="deckContextBar" class="deck-context">
+        <div class="deck-context-info">
+          <strong id="deckContextName">No file uploaded yet</strong>
+          <span id="deckContextMeta" hidden></span>
+        </div>
+        <button id="changeFileButton" class="ghost-button" type="button">Change file</button>
+        <input id="changeFileInput" type="file" accept=".pptx,.docx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+      </div>
+
+      <section id="upload" class="panel is-active">
+        <div id="googleWorkspaceCard" class="google-card" hidden>
+          <div class="google-card-copy">
+            <strong id="googleWorkspaceTitle">Google document detected</strong>
+            <p id="googleWorkspaceHint" class="hint">Scan the open tab to suggest names and redact text in place.</p>
+          </div>
+          <button id="scanGoogleButton" class="primary-action" type="button">Scan this tab</button>
+        </div>
+
+        <p id="uploadDivider" class="upload-divider" hidden>or upload a file</p>
+
+        <label id="dropZone" class="drop-zone" for="fileInput">
+          <input id="fileInput" type="file" accept=".pptx,.docx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+          <span class="drop-title">Drop a file</span>
+          <span class="drop-subtitle">.pptx or .docx from your machine</span>
+        </label>
+        <div id="analysisCard" class="summary" hidden></div>
+      </section>
+
+      <section id="rules" class="panel">
+        <div class="section-title">
+          <h2>Rules</h2>
+        </div>
+
+        <details class="saved-setups">
+          <summary>Saved setups</summary>
+          <div class="saved-setups-body">
+            <p class="hint">Load a profile you use often, or save the rules below for next time.</p>
+            <div class="profile-actions">
+              <select id="profileSelect" aria-label="Saved profiles"></select>
+              <button id="loadProfileButton" type="button">Load</button>
+              <button id="saveProfileButton" type="button">Save</button>
+              <button id="exportProfileButton" type="button">Export</button>
+              <button id="importProfileButton" type="button">Import</button>
+              <input id="profileImportInput" type="file" accept="application/json,.json" hidden>
+            </div>
+          </div>
+        </details>
+
+        <div class="accordion">
+          <details class="rule-section" open>
+            <summary>Names &amp; text</summary>
+            <div class="rule-section-body">
+              <div id="nameSuggestions" class="name-suggestions" hidden>
+                <div class="name-suggestions-header">
+                  <p class="hint">Top likely names, brands, and contact details from your document. Expand to see more, or review ambiguous matches before adding.</p>
+                  <div class="name-suggestions-actions">
+                    <button id="addAllNamesButton" type="button" class="add-all-names">Add all likely</button>
+                    <button id="toggleMoreLikelyButton" type="button" class="toggle-more-likely" hidden>Show more likely</button>
+                    <button id="toggleLowConfidenceButton" type="button" class="toggle-low-confidence" hidden>Show review items</button>
+                  </div>
+                </div>
+                <div id="nameSuggestionsList" class="name-suggestions-list"></div>
+              </div>
+
+              <label class="field checkbox-field">
+                <input id="redactPii" type="checkbox" checked>
+                <span>Auto-redact emails, URLs, and phone numbers</span>
+              </label>
+
+              <label class="field">
+                <span>Brand and client names</span>
+                <textarea id="textRules" rows="4" placeholder="Acme Corp&#10;Project Orion"></textarea>
+                <span id="textRulesHint" class="field-hint">One name per line. Matches any capitalization.</span>
+              </label>
+
+              <label class="field">
+                <span>Replacement text</span>
+                <input id="replacementText" type="text" value="[REDACTED]">
+              </label>
+            </div>
+          </details>
+
+          <details id="slidesRuleSection" class="rule-section" data-capability="slides">
+            <summary>Slides to remove</summary>
+            <div class="rule-section-body">
+              <label class="field">
+                <span>Slide ranges</span>
+                <input id="slideRanges" type="text" placeholder="2, 5-7">
+                <span id="slideRangesHint" class="field-hint">Upload a deck to validate slide numbers.</span>
+                <span id="slideRangesError" class="field-error" hidden></span>
+              </label>
+            </div>
+          </details>
+
+          <details class="rule-section">
+            <summary>Numbers</summary>
+            <div class="rule-section-body numbers-panel">
+              <p class="hint numbers-lead">Change figures in text and charts ($, %, counts). Each row is one rule. Rules are checked top to bottom.</p>
+
+              <ul class="numbers-examples hint">
+                <li><strong>Blank nearby word + Redact</strong> — every number becomes <code>[NUMBER]</code></li>
+                <li><strong>Revenue + Scale × 0.8</strong> — numbers in text that mentions “Revenue” are multiplied by 0.8</li>
+                <li><strong>Skip</strong> — this row does nothing (useful placeholder)</li>
+              </ul>
+
+              <div class="number-groups-head" aria-hidden="true">
+                <span>Nearby word</span>
+                <span>Action</span>
+                <span>× value</span>
+              </div>
+              <div id="numberGroups" class="stack number-groups"></div>
+
+              <div class="numbers-footer">
+                <button id="addNumberGroupButton" type="button">Add another rule</button>
+                <p class="field-hint">Leave “Nearby word” blank to match all numbers. Years (2020–2030) and slide numbers are left unchanged.</p>
+              </div>
+            </div>
+          </details>
+
+          <details id="imagesRuleSection" class="rule-section" data-capability="images">
+            <summary>Images</summary>
+            <div class="rule-section-body">
+              <div class="rule-header">
+                <label><input id="redactAllImages" type="checkbox"> Redact all images</label>
+              </div>
+              <div id="imageGrid" class="thumb-grid"></div>
+            </div>
+          </details>
+        </div>
+
+        <div id="inlineError" class="inline-error" hidden></div>
+
+        <div class="actions">
+          <button id="toPreviewButton" class="primary-action" type="button">Preview impact</button>
+        </div>
+      </section>
+
+      <section id="preview" class="panel">
+        <div id="previewSummary" class="summary preview-workspace"></div>
+        <div class="actions">
+          <button id="backToRulesButton" type="button">Adjust rules</button>
+          <button id="toDownloadButton" class="primary-action" type="button">Looks good — sanitize</button>
+        </div>
+      </section>
+
+      <section id="download" class="panel">
+        <div id="processingView">
+          <div class="progress-shell">
+            <div id="progressBar" class="progress-bar"></div>
+          </div>
+          <p id="progressText">Ready.</p>
+        </div>
+
+        <div id="successView" class="success-view" hidden>
+          <div class="success-badge" aria-hidden="true">✓</div>
+          <h2>Deck ready</h2>
+          <p id="successMessage" class="success-message">Your sanitized deck is ready.</p>
+          <div class="success-actions">
+            <a id="downloadLink" class="download primary-action" hidden>Download sanitized deck</a>
+            <button id="sameRulesButton" type="button">Same rules, new file</button>
+            <button id="anotherDeckButton" type="button">Start over</button>
+          </div>
+          <details id="warningsDetails" class="warnings-details" hidden>
+            <summary>Warnings</summary>
+            <div id="warnings" class="warnings"></div>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <script src="../lib/jszip.min.js"></script>
+    <script type="module" src="./sidepanel.js"></script>
+    <script>
+    (function () {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      var COLORS = ["#e87a90", "#b8a8e0", "#f4c4a0", "#6a5acd", "#4aad9a", "#d4943a"];
+      document.addEventListener("click", function (e) {
+        if (!e.target.closest(".primary-action, .add-name, .add-all-names, .download")) return;
+        for (var i = 0; i < 8; i++) {
+          var sp = document.createElement("div");
+          sp.className = "sparkle";
+          var s = 3 + Math.random() * 5;
+          sp.style.left = e.clientX + "px";
+          sp.style.top = e.clientY + "px";
+          sp.style.width = s + "px";
+          sp.style.height = s + "px";
+          sp.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
+          document.body.appendChild(sp);
+          var angle = (Math.PI * 2 / 8) * i + (Math.random() - 0.5) * 0.5;
+          var dist = 14 + Math.random() * 20;
+          sp.animate([
+            { opacity: 1, transform: "translate(0,0) scale(1)" },
+            { opacity: 0, transform: "translate(" + Math.cos(angle) * dist + "px," + Math.sin(angle) * dist + "px) scale(0)" }
+          ], { duration: 400 + Math.random() * 200, easing: "ease-out" })
+            .onfinish = function () { sp.remove(); };
+        }
+      });
+    })();
+    </script>
+  </body>
+</html>

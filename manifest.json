@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "DeckSafe",
+  "description": "Client-side document anonymization for PowerPoint, Word, Google Docs, and Google Slides.",
+  "version": "0.2.0",
+  "permissions": ["sidePanel", "storage", "tabs"],
+  "host_permissions": ["https://docs.google.com/*"],
+  "action": {
+    "default_title": "Open DeckSafe",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://docs.google.com/document/*",
+        "https://docs.google.com/presentation/*"
+      ],
+      "js": ["content/google-workspace.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/jszip.min.js",
+        "engine/name-detector.js",
+        "engine/common-words.js",
+        "engine/pii-detector.js",
+        "engine/suggestion-utils.js",
+        "engine/redact-rules.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
