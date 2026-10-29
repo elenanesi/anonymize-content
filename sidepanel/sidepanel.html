@@ -116,6 +116,7 @@
                   <p class="hint">Top likely names, brands, and contact details from your document. Expand to see more, or review ambiguous matches before adding.</p>
                   <div class="name-suggestions-actions">
                     <button id="addAllNamesButton" type="button" class="add-all-names">Add all likely</button>
+                    <button id="deselectAllNamesButton" type="button" class="toggle-more-likely" hidden>Deselect all</button>
                     <button id="toggleMoreLikelyButton" type="button" class="toggle-more-likely" hidden>Show more likely</button>
                     <button id="toggleLowConfidenceButton" type="button" class="toggle-low-confidence" hidden>Show review items</button>
                   </div>
@@ -168,6 +169,7 @@
                 <span>Nearby word</span>
                 <span>Action</span>
                 <span>× value</span>
+                <span></span>
               </div>
               <div id="numberGroups" class="stack number-groups"></div>
 
@@ -192,6 +194,7 @@
         <div id="inlineError" class="inline-error" hidden></div>
 
         <div class="actions">
+          <button id="saveProfileEndButton" type="button">Save as profile</button>
           <button id="toPreviewButton" class="primary-action" type="button">Preview impact</button>
         </div>
       </section>
@@ -231,32 +234,6 @@
 
     <script src="../lib/jszip.min.js"></script>
     <script type="module" src="./sidepanel.js"></script>
-    <script>
-    (function () {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      var COLORS = ["#e87a90", "#b8a8e0", "#f4c4a0", "#6a5acd", "#4aad9a", "#d4943a"];
-      document.addEventListener("click", function (e) {
-        if (!e.target.closest(".primary-action, .add-name, .add-all-names, .download")) return;
-        for (var i = 0; i < 8; i++) {
-          var sp = document.createElement("div");
-          sp.className = "sparkle";
-          var s = 3 + Math.random() * 5;
-          sp.style.left = e.clientX + "px";
-          sp.style.top = e.clientY + "px";
-          sp.style.width = s + "px";
-          sp.style.height = s + "px";
-          sp.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
-          document.body.appendChild(sp);
-          var angle = (Math.PI * 2 / 8) * i + (Math.random() - 0.5) * 0.5;
-          var dist = 14 + Math.random() * 20;
-          sp.animate([
-            { opacity: 1, transform: "translate(0,0) scale(1)" },
-            { opacity: 0, transform: "translate(" + Math.cos(angle) * dist + "px," + Math.sin(angle) * dist + "px) scale(0)" }
-          ], { duration: 400 + Math.random() * 200, easing: "ease-out" })
-            .onfinish = function () { sp.remove(); };
-        }
-      });
-    })();
-    </script>
+    <script src="./click-effect.js"></script>
   </body>
 </html>

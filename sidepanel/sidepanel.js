@@ -1,5 +1,5 @@
-import { createFileProcessor, createGoogleProcessor } from "../engine/document-factory.js";
-import { detectGoogleFormat, fileAcceptAttribute, getFormatMeta, sanitizedFileName } from "../engine/file-types.js";
+import { createFileProcessor } from "../engine/document-factory.js";
+import { detectGoogleFormat, googleExportInfo, fileAcceptAttribute, getFormatMeta, sanitizedFileName } from "../engine/file-types.js";
 import { caseVariants } from "../engine/name-detector.js";
 import { isHighConfidenceSuggestion } from "../engine/suggestion-utils.js";
 import { parseSlideRanges } from "../engine/slide-remover.js";
@@ -43,6 +43,8 @@ const dom = {
   nameSuggestions: document.querySelector("#nameSuggestions"),
   nameSuggestionsList: document.querySelector("#nameSuggestionsList"),
   addAllNamesButton: document.querySelector("#addAllNamesButton"),
+  deselectAllNamesButton: document.querySelector("#deselectAllNamesButton"),
+  saveProfileEndButton: document.querySelector("#saveProfileEndButton"),
   toggleLowConfidenceButton: document.querySelector("#toggleLowConfidenceButton"),
   toggleMoreLikelyButton: document.querySelector("#toggleMoreLikelyButton"),
   redactPii: document.querySelector("#redactPii"),
@@ -93,6 +95,10 @@ function boot() {
   updateTextRulesHint();
   refreshGoogleWorkspaceCard();
   renderDeckContext();
+  chrome.tabs?.onActivated.addListener(refreshGoogleWorkspaceCard);
+  chrome.tabs?.onUpdated.addListener((_id, change) => {
+    if (change.url || change.title) refreshGoogleWorkspaceCard();
+  });
 }
 
 function wireEvents() {
@@ -150,6 +156,8 @@ function wireEvents() {
   dom.importProfileButton.addEventListener("click", () => dom.profileImportInput.click());
   dom.profileImportInput.addEventListener("change", importProfileFile);
   dom.addAllNamesButton?.addEventListener("click", addAllHighConfidenceNames);
+  dom.deselectAllNamesButton?.addEventListener("click", deselectAllSuggestedNames);
+  dom.saveProfileEndButton?.addEventListener("click", saveCurrentProfile);
   dom.toggleLowConfidenceButton?.addEventListener("click", toggleLowConfidenceSuggestions);
   dom.toggleMoreLikelyButton?.addEventListener("click", toggleMoreLikelySuggestions);
   dom.scanGoogleButton?.addEventListener("click", loadGoogleWorkspace);
@@ -172,19 +180,28 @@ async function loadFile(file) {
   }
 }
 
+// Google editors render to canvas/SVG, so their DOM can't be read or edited reliably.
+// Instead, export the doc with the user's own Google session, redact it locally,
+// and download the sanitized copy. Nothing leaves the browser except the export request to Google.
 async function loadGoogleWorkspace() {
   try {
     const tab = await getActiveGoogleTab();
     if (!tab) {
       throw new Error("Open a Google Doc or Google Slides deck in this tab, then try again.");
     }
-    setBusy("Scanning Google tab...");
-    state.file = null;
-    state.source = "google";
-    state.googleTabId = tab.id;
-    state.processor = createGoogleProcessor(tab.id, tab.format);
-    state.analysis = await state.processor.load();
-    await finishDocumentLoad();
+    if (tab.format === "google-sheets") {
+      throw new Error("Google Sheets isn't supported yet. Download it as .xlsx, or use Docs/Slides.");
+    }
+    setBusy("Exporting Google document...");
+    const response = await fetch(tab.export.url, { credentials: "include" });
+    const type = response.headers.get("content-type") || "";
+    if (!response.ok || type.includes("text/html")) {
+      throw new Error("Google refused the export. Make sure you're signed in and the file allows downloading.");
+    }
+    const name = (tab.title.replace(/\s+-\s+Google\s+(Docs|Slides).*$/i, "").trim() || "Google document")
+      .replace(/[\\/:*?"<>|]/g, "_");
+    const file = new File([await response.blob()], `${name}${tab.export.extension}`);
+    await loadFile(file);
   } catch (error) {
     showStepError(error, "upload");
   } finally {
@@ -218,7 +235,7 @@ async function getActiveGoogleTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const format = detectGoogleFormat(tab?.url || "");
   if (!format || !tab?.id) return null;
-  return { id: tab.id, format, title: tab.title || "" };
+  return { id: tab.id, format, title: tab.title || "", export: googleExportInfo(tab.url) };
 }
 
 async function refreshGoogleWorkspaceCard() {
@@ -233,8 +250,8 @@ async function refreshGoogleWorkspaceCard() {
   dom.uploadDivider.hidden = false;
   dom.googleWorkspaceTitle.textContent = `${meta.label} detected`;
   dom.googleWorkspaceHint.textContent = tab.title
-    ? `“${tab.title}” — scan text in the open tab, then redact in place.`
-    : "Scan text in the open tab, then redact in place.";
+    ? `“${tab.title}” — export, redact locally, then download a sanitized copy.`
+    : "Export, redact locally, then download a sanitized copy.";
 }
 
 function requestChangeFile() {
@@ -419,6 +436,8 @@ function getVisibleNameSuggestions() {
 }
 
 function renderNameSuggestions() {
+  const hasAdded = getAddedSuggestionCanonicals().length > 0;
+  if (dom.deselectAllNamesButton) dom.deselectAllNamesButton.hidden = !hasAdded;
   const likely = getLikelySuggestions();
   const review = getReviewSuggestions();
   const visibleLikely = state.showAllLikelySuggestions
@@ -441,7 +460,7 @@ function renderNameSuggestions() {
       : `Show review items (${review.length})`;
   }
 
-  if (!suggestions.length && likely.length === 0 && review.length === 0) {
+  if (!suggestions.length && likely.length === 0 && review.length === 0 && !hasAdded) {
     dom.nameSuggestions.hidden = true;
     dom.nameSuggestionsList.textContent = "";
     return;
@@ -532,6 +551,21 @@ function addAllHighConfidenceNames() {
   for (const entry of getLikelySuggestions()) {
     addSuggestedName(entry);
   }
+}
+
+function getAddedSuggestionCanonicals() {
+  return (state.analysis?.suggestedNames || [])
+    .map((entry) => entry.canonical || entry.token.toLowerCase())
+    .filter((canonical) => state.addedNames.has(canonical));
+}
+
+// Removes every suggestion-derived term from the rules; manually typed terms stay.
+function deselectAllSuggestedNames() {
+  const remove = new Set(getAddedSuggestionCanonicals());
+  dom.textRules.value = readTermsFromRules()
+    .filter((term) => !remove.has(term.toLowerCase()))
+    .join("\n");
+  syncAddedNamesFromRules();
 }
 
 function dismissSuggestedName(entry) {
@@ -675,7 +709,9 @@ function addNumberGroup(group) {
       <span class="number-field-label">× value</span>
       <input class="number-factor" type="number" min="0" max="5" step="0.01" value="${group.factor}" title="Multiplier when Action is Scale (e.g. 0.8 = 80% of original).">
     </label>
+    <button class="number-delete" type="button" aria-label="Delete rule" title="Delete rule">✕</button>
   `;
+  row.querySelector(".number-delete").addEventListener("click", () => row.remove());
   const modeSelect = row.querySelector(".number-mode");
   modeSelect.value = group.mode;
   modeSelect.addEventListener("change", () => syncNumberFactorField(row));
@@ -851,7 +887,7 @@ function applyConfig(config) {
     input.checked = config.imageIds?.includes(input.value) || false;
   });
   dom.numberGroups.textContent = "";
-  for (const group of config.numberGroups?.length ? config.numberGroups : [{ label: "", mode: "skip", factor: 1 }]) {
+  for (const group of config.numberGroups || []) {
     addNumberGroup(group);
   }
   syncAddedNamesFromRules();

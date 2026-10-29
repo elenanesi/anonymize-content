@@ -8,8 +8,8 @@ Supported sources:
 |--------|----------------|-------------------------|
 | **PowerPoint (.pptx)** | Upload a file | Yes — `_SANITIZED.pptx` |
 | **Word (.docx)** | Upload a file | Yes — `_SANITIZED.docx` |
-| **Google Docs** | Open a doc in Chrome, scan the tab | In-place edit; export via Google File → Download |
-| **Google Slides** | Open a deck in Chrome, scan the tab | In-place edit; export via Google File → Download |
+| **Google Docs** | Open a doc in Chrome, scan the tab | Sanitized `.docx` copy |
+| **Google Slides** | Open a deck in Chrome, scan the tab | Sanitized `.pptx` copy |
 
 ## Install (developer mode)
 
@@ -31,14 +31,12 @@ Supported sources:
 
 ### Google Docs or Google Slides
 
-1. Open the document or presentation in a Chrome tab (`docs.google.com/document/...` or `docs.google.com/presentation/...`).
+1. Open the document or presentation in a Chrome tab.
 2. Open the DeckSafe side panel — you should see **“Google Doc detected”** or **“Google Slides detected”**.
-3. Click **Scan this tab**.
-4. Configure rules the same way as for local files.
-5. Preview, then **Apply** — changes are written directly into the open Google document.
-6. Use **File → Download** in Google to save a copy (e.g. as PDF, `.docx`, or `.pptx`).
+3. Click **Scan this tab**. DeckSafe exports the file as `.docx`/`.pptx` using your signed-in Google session, then processes it locally like an uploaded file.
+4. Configure rules, preview, and download the `_SANITIZED` copy. The original Google file is never modified.
 
-> **Note:** Google Workspace redaction covers **text and numbers** in the editor. Image redaction, chart editing, and slide removal are only available for uploaded PowerPoint files. Word uploads support text, numbers, and images.
+> Google's editors render to canvas/SVG, so reading or editing their DOM is not reliable; export-and-redact is. Google Sheets is not supported yet (download as `.xlsx` is not handled either).
 
 ## Features
 
@@ -54,12 +52,9 @@ Supported sources:
 ```
 anonymize-content/
 ├── manifest.json
-├── content/
-│   └── google-workspace.js   # In-browser redaction for Google Docs/Slides
 ├── engine/
 │   ├── pptx-processor.js     # PowerPoint OOXML pipeline
 │   ├── docx-processor.js     # Word OOXML pipeline
-│   ├── google-workspace-processor.js
 │   ├── redact-rules.js       # Shared text/number redaction logic
 │   └── ...
 └── sidepanel/                # Side panel UI
@@ -70,11 +65,11 @@ anonymize-content/
 - **sidePanel** — DeckSafe UI
 - **storage** — saved rule profiles
 - **tabs** — detect and scan the active Google Docs/Slides tab
-- **host_permissions: docs.google.com** — read and update text in Google editors you have open
+- **host_permissions: docs.google.com** — download an export of the Google Doc/Slides deck you click Scan on
 
 ## Limitations
 
-- Google Docs/Slides use a live editor DOM; complex layouts or canvas-rendered regions may not scan perfectly. Refresh the tab if **Scan this tab** fails.
+- Google Sheets is not supported. Export fidelity for Docs/Slides follows Google's own `.docx`/`.pptx` export.
 - Embedded Excel charts in PowerPoint may produce warnings; embedded workbooks are not fully rewritten.
 - Very large files may be slow — processing is single-threaded in the browser.
 
