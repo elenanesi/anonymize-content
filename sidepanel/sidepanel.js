@@ -193,20 +193,63 @@ async function loadGoogleWorkspace() {
       throw new Error("Google Sheets isn't supported yet. Download it as .xlsx, or use Docs/Slides.");
     }
     setBusy("Exporting Google document...");
-    const response = await fetch(tab.export.url, { credentials: "include" });
-    const type = response.headers.get("content-type") || "";
-    if (!response.ok || type.includes("text/html")) {
-      throw new Error("Google refused the export. Make sure you're signed in and the file allows downloading.");
-    }
+    const blob = await fetchGoogleExport(tab);
     const name = (tab.title.replace(/\s+-\s+Google\s+(Docs|Slides).*$/i, "").trim() || "Google document")
       .replace(/[\\/:*?"<>|]/g, "_");
-    const file = new File([await response.blob()], `${name}${tab.export.extension}`);
+    const file = new File([blob], `${name}${tab.export.extension}`);
     await loadFile(file);
   } catch (error) {
     showStepError(error, "upload");
   } finally {
     setBusy("");
   }
+}
+
+// Fetch inside the Google tab first (same-site, so session cookies are always sent);
+// fall back to fetching from the side panel with host permissions.
+async function fetchGoogleExport(tab) {
+  const errors = [];
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      args: [tab.export.url],
+      func: async (url) => {
+        try {
+          const response = await fetch(url, { credentials: "include" });
+          const type = response.headers.get("content-type") || "";
+          if (!response.ok || type.includes("text/html")) {
+            return { error: `HTTP ${response.status} (${type || "no content type"})` };
+          }
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 0x8000) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+          }
+          return { base64: btoa(binary) };
+        } catch (error) {
+          return { error: String(error) };
+        }
+      }
+    });
+    if (result?.base64) {
+      const binary = atob(result.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes]);
+    }
+    errors.push(`in-tab: ${result?.error || "no data"}`);
+  } catch (error) {
+    errors.push(`in-tab: ${error.message || error}`);
+  }
+  try {
+    const response = await fetch(tab.export.url, { credentials: "include" });
+    const type = response.headers.get("content-type") || "";
+    if (response.ok && !type.includes("text/html")) return await response.blob();
+    errors.push(`panel: HTTP ${response.status} (${type || "no content type"})`);
+  } catch (error) {
+    errors.push(`panel: ${error.message || error}`);
+  }
+  throw new Error(`Google export failed. ${errors.join(" | ")}`);
 }
 
 async function finishDocumentLoad() {
